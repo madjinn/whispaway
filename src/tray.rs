@@ -81,10 +81,10 @@ impl VoiceInputTray {
                 .output();
             
             // Remove stale socket file if it exists  
-            std::fs::remove_file("/tmp/whisp-away-daemon.sock").ok();
+            crate::socket::remove_own_socket(&crate::socket::default_socket_path());
         } else {
             // Remove stale socket file (same path for both backends now)
-            std::fs::remove_file("/tmp/whisp-away-daemon.sock").ok();
+            crate::socket::remove_own_socket(&crate::socket::default_socket_path());
         }
         
         // Check if already running
@@ -111,7 +111,7 @@ impl VoiceInputTray {
                 let status = self.status.lock().unwrap();
                 status.model.clone()
             };
-            let socket_path = std::env::var("WA_WHISPER_SOCKET").unwrap_or_else(|_| "/tmp/whisp-away-daemon.sock".to_string());
+            let socket_path = crate::socket::default_socket_path();
             let home = std::env::var("HOME").unwrap_or_default();
             
             // Get the path to our own binary
@@ -126,13 +126,12 @@ impl VoiceInputTray {
                .arg("--model")
                .arg(&model);
             
-            // Add socket path for faster-whisper
+            // The same socket path for both backends
+            cmd.arg("--socket-path")
+               .arg(&socket_path);
+            cmd.env("WA_WHISPER_SOCKET", &socket_path);
+            
             if self.daemon_type == "faster-whisper" {
-                cmd.arg("--socket-path")
-                   .arg(&socket_path);
-                
-                // Faster-whisper specific environment
-                cmd.env("WA_WHISPER_SOCKET", &socket_path);
                 
                 // Device and compute type for faster-whisper
                 if std::env::var("CUDA_VISIBLE_DEVICES").is_ok() {
@@ -279,7 +278,7 @@ impl VoiceInputTray {
                     
                     // Also kill any process with the daemon socket in its command line
                     let _ = Command::new("pkill")
-                        .args(&["-f", "/tmp/whisp-away-daemon.sock"])
+                        .args(&["-f", &crate::socket::default_socket_path()])
                         .output();
                 }
                 
@@ -325,11 +324,7 @@ impl VoiceInputTray {
                 }
                 
                 // Clean up the socket file if it exists
-                if self.daemon_type == "faster-whisper" {
-                    std::fs::remove_file("/tmp/whisp-away-daemon.sock").ok();
-                } else {
-                    std::fs::remove_file("/tmp/whisp-away-daemon.sock").ok();
-                }
+                crate::socket::remove_own_socket(&crate::socket::default_socket_path());
                 
                 *process_guard = None;
                 
@@ -379,17 +374,16 @@ impl VoiceInputTray {
 
     async fn check_daemon_status(&self) -> Result<bool> {
         let socket_path = match self.daemon_type.as_str() {
-            "faster-whisper" => "/tmp/whisp-away-daemon.sock",
-            "whisper-cpp" => "/tmp/whisp-away-daemon.sock",
+            "faster-whisper" | "whisper-cpp" => crate::socket::default_socket_path(),
             _ => return Ok(false),
         };
 
-        if !Path::new(socket_path).exists() {
+        if !Path::new(&socket_path).exists() || crate::socket::check_socket_owner(&socket_path).is_err() {
             return Ok(false);
         }
 
         // Try to connect to the daemon
-        match UnixStream::connect(socket_path).await {
+        match UnixStream::connect(&socket_path).await {
             Ok(mut stream) => {
                 // Send a status request
                 let request = r#"{"command": "status"}"#;

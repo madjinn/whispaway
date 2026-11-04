@@ -13,6 +13,20 @@ import logging
 from pathlib import Path
 from faster_whisper import WhisperModel
 
+def default_socket_path():
+    """The same path as the Rust client: WA_WHISPER_SOCKET, else
+    $XDG_RUNTIME_DIR/whisp-away-daemon.sock, else the user's cache dir."""
+    path = os.environ.get("WA_WHISPER_SOCKET")
+    if path:
+        return path
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if runtime and os.path.isdir(runtime):
+        return os.path.join(runtime, "whisp-away-daemon.sock")
+    cache = os.environ.get("XDG_CACHE_HOME") or os.path.join(os.path.expanduser("~"), ".cache")
+    directory = os.path.join(cache, "whisp-away")
+    os.makedirs(directory, mode=0o700, exist_ok=True)
+    return os.path.join(directory, "whisp-away-daemon.sock")
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -21,9 +35,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class WhisperDaemon:
-    def __init__(self, model_name="medium.en", socket_path="/tmp/whisp-away-daemon.sock"):
+    def __init__(self, model_name="medium.en", socket_path=None):
         self.model_name = model_name
-        self.socket_path = socket_path
+        self.socket_path = socket_path or default_socket_path()
         self.model = None
         self.server_socket = None
         self.running = True
@@ -93,8 +107,11 @@ class WhisperDaemon:
             
     def start_server(self):
         """Start the Unix socket server."""
-        # Remove existing socket if it exists
-        if os.path.exists(self.socket_path):
+        # Remove a stale socket of our own; never one of another user's
+        if os.path.lexists(self.socket_path):
+            owner = os.lstat(self.socket_path).st_uid
+            if owner != os.getuid():
+                raise RuntimeError(f"Refusing daemon socket {self.socket_path}: owned by uid {owner}, not by this user")
             os.unlink(self.socket_path)
             
         # Create Unix socket
@@ -103,7 +120,7 @@ class WhisperDaemon:
         self.server_socket.listen(1)
         
         # Set socket permissions
-        os.chmod(self.socket_path, 0o666)
+        os.chmod(self.socket_path, 0o600)
         
         logger.info(f"Daemon listening on {self.socket_path}")
         
@@ -150,7 +167,7 @@ class WhisperDaemon:
 def main():
     # Get model from environment or use default
     model_name = os.environ.get("WA_WHISPER_MODEL", "medium.en")
-    socket_path = os.environ.get("WA_WHISPER_SOCKET", "/tmp/whisp-away-daemon.sock")
+    socket_path = default_socket_path()
     
     # Create and run daemon
     daemon = WhisperDaemon(model_name, socket_path)

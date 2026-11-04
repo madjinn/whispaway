@@ -114,14 +114,26 @@ let
     CMAKE_BUILD_TYPE = "Release";
     CMAKE_POSITION_INDEPENDENT_CODE = "ON";
     
-    # Rust optimizations for maximum performance
-    RUSTFLAGS = "-C target-cpu=native -C opt-level=3 -C lto=thin -C codegen-units=1";
+    # Rust optimizations for maximum performance. A portable CPU level, not
+    # target-cpu=native: a Nix build runs on whichever machine builds it (a
+    # remote builder or a binary cache), and a native build for an AVX-512
+    # builder dies with SIGILL on CPUs without AVX-512.
+    RUSTFLAGS = "-C target-cpu=x86-64-v3 -C opt-level=3 -C lto=thin -C codegen-units=1";
     CARGO_PROFILE_RELEASE_LTO = "thin";
     CARGO_PROFILE_RELEASE_CODEGEN_UNITS = "1";
     CARGO_PROFILE_RELEASE_OPT_LEVEL = "3";
     
-    # Enable native CPU optimizations for GGML
-    GGML_NATIVE = "ON";
+    # GGML's CPU options for the same portable level (x86-64-v3: AVX2, FMA,
+    # F16C, BMI2). whisper-rs-sys passes only CMAKE_* and WHISPER_* variables
+    # to CMake, so a GGML_* variable here would be ignored (and with
+    # SOURCE_DATE_EPOCH set, ggml would build with every extension off). A
+    # file CMake includes before each project() presets them instead.
+    CMAKE_PROJECT_INCLUDE_BEFORE = builtins.toFile "ggml-x86-64-v3.cmake" ''
+      set(GGML_NATIVE OFF CACHE BOOL "x86-64-v3" FORCE)
+      foreach(option GGML_SSE42 GGML_AVX GGML_AVX2 GGML_BMI2 GGML_FMA GGML_F16C)
+        set(''${option} ON CACHE BOOL "x86-64-v3" FORCE)
+      endforeach()
+    '';
     
     # Only set CUDA variables if CUDA acceleration is enabled
     CUDA_PATH = lib.optionalString (accelerationType == "cuda") "${cudaPackages.cudatoolkit}";
@@ -289,7 +301,7 @@ let
     
     meta = with lib; {
       description = "Rust-based voice input with whisper.cpp";
-      license = licenses.mit;
+      license = licenses.gpl3Only;
       maintainers = [];
     };
   };
@@ -312,7 +324,7 @@ let
     };
     
     # Override LTO settings for crane to avoid conflicts
-    RUSTFLAGS = "-C target-cpu=native -C opt-level=3";
+    RUSTFLAGS = "-C target-cpu=x86-64-v3 -C opt-level=3";
     CARGO_PROFILE_RELEASE_LTO = "false";
     CARGO_PROFILE_RELEASE_CODEGEN_UNITS = "16";
   };

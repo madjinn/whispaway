@@ -13,15 +13,13 @@ use whisper_rs::{WhisperContext, WhisperContextParameters, FullParams, SamplingS
 use whisper_rs::WhisperState;
 use crate::helpers::wav_to_samples;
 
-const SOCKET_PATH: &str = "/tmp/whisp-away-daemon.sock";
-
 #[tokio::main]
-pub async fn run_daemon(model_path: &str) -> Result<()> {
+pub async fn run_daemon(model_path: &str, socket_path: &str) -> Result<()> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
     
     // Create and run daemon
-    let daemon = WhisperDaemon::new(model_path)?;
+    let daemon = WhisperDaemon::new(model_path, socket_path)?;
     daemon.run().await
 }
 
@@ -48,7 +46,7 @@ pub struct WhisperDaemon {
 }
 
 impl WhisperDaemon {
-    pub fn new(model_path: &str) -> Result<Self> {
+    pub fn new(model_path: &str, socket_path: &str) -> Result<Self> {
         // If model_path doesn't contain a path separator, treat it as a model name
         // and construct the full path
         let final_model_path = if !model_path.contains('/') {
@@ -120,15 +118,16 @@ impl WhisperDaemon {
         
         Ok(Self {
             ctx: Arc::new(ctx),
-            socket_path: SOCKET_PATH.to_string(),
+            socket_path: socket_path.to_string(),
             #[cfg(feature = "openvino")]
             state,
         })
     }
     
     pub async fn run(&self) -> Result<()> {
-        // Remove existing socket if it exists
-        if Path::new(&self.socket_path).exists() {
+        // Remove a stale socket of our own; never one of another user's
+        crate::socket::check_socket_owner(&self.socket_path)?;
+        if fs::symlink_metadata(&self.socket_path).is_ok() {
             fs::remove_file(&self.socket_path)?;
         }
         
@@ -138,7 +137,7 @@ impl WhisperDaemon {
         
         // Set socket permissions
         let mut perms = fs::metadata(&self.socket_path)?.permissions();
-        perms.set_mode(0o666);
+        perms.set_mode(0o600);
         fs::set_permissions(&self.socket_path, perms)?;
         
         info!("Daemon listening on {}", self.socket_path);
