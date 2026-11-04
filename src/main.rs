@@ -142,7 +142,7 @@ fn main() -> Result<()> {
             // Resolve backend (handles TrayDefined case)
             let resolved_backend = resolve_backend(&backend);
             
-            let socket_path = socket_path.unwrap_or_else(|| "/tmp/whisp-away-daemon.sock".to_string());
+            let socket_path = socket::resolve_socket_path(socket_path);
             let use_clipboard = helpers::resolve_use_clipboard(clipboard);
             
             match resolved_backend.as_str() {
@@ -161,13 +161,11 @@ fn main() -> Result<()> {
         Commands::Daemon { backend, model, socket_path } => {
             let resolved_backend = resolve_backend(&backend);
             let model = helpers::resolve_model(model);
+            let socket_path = socket::resolve_socket_path(socket_path);
             
             match resolved_backend.as_str() {
-                "whisper-cpp" => whisper_cpp::run_daemon(&model),
-                "faster-whisper" => {
-                    let socket_path = socket_path.unwrap_or_else(|| "/tmp/whisp-away-daemon.sock".to_string());
-                    faster_whisper::run_daemon(&model, &socket_path)
-                }
+                "whisper-cpp" => whisper_cpp::run_daemon(&model, &socket_path),
+                "faster-whisper" => faster_whisper::run_daemon(&model, &socket_path),
                 unknown => Err(anyhow::anyhow!("Unknown backend: {}", unknown)),
             }
         }

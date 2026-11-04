@@ -93,7 +93,8 @@ in {
     environment.sessionVariables = {
       WA_WHISPER_MODEL = cfg.defaultModel;
       WA_WHISPER_BACKEND = cfg.defaultBackend;
-      WA_WHISPER_SOCKET = "/tmp/whisp-away-daemon.sock";
+      # No WA_WHISPER_SOCKET: the client defaults to $XDG_RUNTIME_DIR, private
+      # to this user, not a shared path in /tmp.
       WA_USE_CLIPBOARD = if cfg.useClipboard then "true" else "false";
     } // optionalAttrs (cfg.accelerationType == "cuda") {
       CUDA_VISIBLE_DEVICES = "0";
