@@ -289,7 +289,7 @@ let
     
     meta = with lib; {
       description = "Rust-based voice input with whisper.cpp";
-      license = licenses.mit;
+      license = licenses.gpl3Only;
       maintainers = [];
     };
   };

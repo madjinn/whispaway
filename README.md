@@ -181,7 +181,9 @@ This project is actively maintained and only tested on NixOS. Contributions are 
 
 ## License
 
-MIT License
+WhispAway for Linux is licensed under GPL-3.0-only from v1.0 (Copyright © 2025–2026 Madjinn Utveckling AB). Versions up to v0.4.0 (commit c1561e2) were MIT; contributions made under MIT keep their notice ([LICENSES/MIT.txt](LICENSES/MIT.txt)).
+
+The code is free software; the name WhispAway and its logo are trademarks of Madjinn Utveckling AB and aren't covered by the licence — forks must use another name.
 
 ## Credits
 
