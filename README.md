@@ -5,7 +5,7 @@
   </picture>
 </h1>
 
-**WhispAway for iPhone is now on the App Store in Sweden, with more countries soon.** [Get it on the App Store](https://apps.apple.com/se/app/apple-store/id6818049570?pt=128223142&ct=github-linux&mt=8) · [whispaway.app](https://whispaway.app)
+**WhispAway for iPhone is now on the App Store in Sweden, with more countries coming soon.** [Get it on the App Store](https://apps.apple.com/se/app/apple-store/id6818049570?pt=128223142&ct=github-linux&mt=8) · [whispaway.app](https://whispaway.app)
 
 Voice dictation for Linux using OpenAI's Whisper models. Type with your voice using local speech recognition - no cloud services required.
 
