@@ -1,4 +1,11 @@
-# WhispAway
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/whispaway-logo-dark.svg">
+    <img alt="WhispAway" src="assets/whispaway-logo-light.svg" width="360">
+  </picture>
+</h1>
+
+<!-- BANNER: wording pending the Principal's OK via whispaway-a6; link: https://apps.apple.com/se/app/apple-store/id6818049570?pt=128223142&ct=github-linux&mt=8 · https://whispaway.app -->
 
 Voice dictation for Linux using OpenAI's Whisper models. Type with your voice using local speech recognition - no cloud services required.
 
